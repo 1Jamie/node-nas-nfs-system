@@ -18,6 +18,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-t
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // Change this in production!
 
+// Pre-hashed password for security (generated once and stored)
+// This is the bcrypt hash of the current ADMIN_PASSWORD (J3498200j)
+const HASHED_PASSWORD = process.env.HASHED_PASSWORD || '$2a$10$QaksKV.AIG58eUfxdhZQOevMUWH3JVSBz78HrjJqZTA9kJE93ifsC';
+
 // Configuration and backup settings
 const CONFIG_DIR = process.env.CONFIG_DIR || '/etc/nfs-web-ui';
 const CONFIG_FILE = path.join(CONFIG_DIR, 'exports.json');
@@ -88,6 +92,15 @@ const validateIP = (ip) => {
     const cidrRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$/;
     
     return ipRegex.test(ip) || cidrRegex.test(ip);
+};
+
+// Password utility functions
+const hashPassword = async (password) => {
+    return await bcrypt.hash(password, 10);
+};
+
+const verifyPassword = async (password, hash) => {
+    return await bcrypt.compare(password, hash);
 };
 
 // Backup and restore functions
@@ -205,7 +218,7 @@ app.post('/api/login', async (req, res) => {
     
     try {
         const isValidUser = username === ADMIN_USERNAME;
-        const isValidPassword = await bcrypt.compare(password, await bcrypt.hash(ADMIN_PASSWORD, 10));
+        const isValidPassword = await verifyPassword(password, HASHED_PASSWORD);
         
         if (isValidUser && isValidPassword) {
             const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '24h' });
@@ -214,6 +227,7 @@ app.post('/api/login', async (req, res) => {
             res.status(401).json({ error: 'Invalid credentials' });
         }
     } catch (error) {
+        console.error('Authentication error:', error);
         res.status(500).json({ error: 'Authentication error' });
     }
 });

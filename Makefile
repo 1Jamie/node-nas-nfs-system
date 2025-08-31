@@ -1,7 +1,7 @@
 # NFS Web Management System - Makefile
 # Provides unified commands for deployment and management
 
-.PHONY: help install deploy start stop restart status logs test clean backup restore cli
+.PHONY: help install deploy start stop restart status logs test clean backup restore cli password-hash password-verify security-status
 
 # Default target
 help:
@@ -24,6 +24,11 @@ help:
 	@echo "  restore        - Restore from backup"
 	@echo "  clean          - Clean up temporary files"
 	@echo "  cli            - Show CLI management commands"
+	@echo ""
+	@echo "Security Commands:"
+	@echo "  password-hash  - Generate bcrypt hash for password"
+	@echo "  password-verify - Verify password against hash"
+	@echo "  security-status - Show password security status"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make deploy          # Deploy the system"
@@ -309,3 +314,44 @@ help-%:
 			echo "No help available for command: $*"; \
 			;; \
 	esac
+
+# Password Security Management
+password-hash:
+	@if [ -z "$(PASSWORD)" ]; then \
+		echo "Usage: make password-hash PASSWORD=yourpassword"; \
+		echo "Example: make password-hash PASSWORD=mypassword123"; \
+		exit 1; \
+	fi
+	@echo "Generating bcrypt hash for password..."
+	@node -e "const bcrypt = require('bcryptjs'); bcrypt.hash('$(PASSWORD)', 10).then(h => console.log('HASHED_PASSWORD=' + h)).catch(e => console.error('Error:', e.message))"
+
+password-verify:
+	@if [ -z "$(PASSWORD)" ] || [ -z "$(HASH)" ]; then \
+		echo "Usage: make password-verify PASSWORD=yourpassword HASH=yourhash"; \
+		echo "Example: make password-verify PASSWORD=mypassword123 HASH='\$$2a\$$10\$...'"; \
+		exit 1; \
+	fi
+	@echo "Verifying password against hash..."
+	@node -e "const bcrypt = require('bcryptjs'); bcrypt.compare('$(PASSWORD)', '$(HASH)').then(r => console.log('Password verification:', r ? 'VALID' : 'INVALID')).catch(e => console.error('Error:', e.message))"
+
+security-status:
+	@echo "Password Security Status:"
+	@echo "========================"
+	@if [ -f /etc/systemd/system/nfs-web-ui.service ]; then \
+		HASHED_PASSWORD=$$(grep "Environment=HASHED_PASSWORD=" /etc/systemd/system/nfs-web-ui.service | cut -d'=' -f3 2>/dev/null); \
+		if [ -n "$$HASHED_PASSWORD" ]; then \
+			echo "✅ Password Security: ENABLED"; \
+			echo "   - Using bcrypt hashing"; \
+			echo "   - Salt protection active"; \
+			echo "   - Secure against rainbow table attacks"; \
+			echo "   - Hash: [SECURE]"; \
+		else \
+			echo "❌ Password Security: DISABLED"; \
+			echo "   - Passwords stored in plain text"; \
+			echo "   - HIGHLY INSECURE"; \
+			echo "   - Run 'node-nfs set-credentials <user> <pass>' to secure"; \
+		fi; \
+	else \
+		echo "❌ Service file not found"; \
+		echo "   - Run 'make deploy' to install the system"; \
+	fi
