@@ -19,8 +19,8 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // Change this in production!
 
 // Pre-hashed password for security (generated once and stored)
-// This is the bcrypt hash of the current ADMIN_PASSWORD (J3498200j)
-const HASHED_PASSWORD = process.env.HASHED_PASSWORD || '$2a$10$QaksKV.AIG58eUfxdhZQOevMUWH3JVSBz78HrjJqZTA9kJE93ifsC';
+// This is the bcrypt hash of the default ADMIN_PASSWORD (admin123)
+const HASHED_PASSWORD = process.env.HASHED_PASSWORD || '$2a$10$2cWmPBQbs68X7BV6I.Ttcuz80AWbkVAXF3to09LUn.Nl56hIN3OA.';
 
 // Configuration and backup settings
 const CONFIG_DIR = process.env.CONFIG_DIR || '/etc/nfs-web-ui';
@@ -670,13 +670,49 @@ app.get('/api/status', authenticateToken, async (req, res) => {
         const { exports: configExports } = await parseExportsFile();
         const activeExports = `${configExports.length} exports configured`;
         
-        // Get system info
-        const uptime = await execCommand('uptime -p');
-        const memory = await execCommand('free -h | grep Mem | awk \'{print $3"/"$2}\'');
-        const disk = await execCommand('df -h / | tail -1 | awk \'{print $5}\'');
+        // Get system info with error handling
+        let uptime, memory, disk;
+        
+        try {
+            uptime = await execCommand('uptime -p');
+        } catch (error) {
+            console.warn('Failed to get uptime:', error.message);
+            uptime = 'Unknown';
+        }
+        
+        try {
+            const freeOutput = await execCommand('free -h | grep Mem');
+            const parts = freeOutput.split(/\s+/);
+            if (parts.length >= 3) {
+                memory = `${parts[2]}/${parts[1]}`;
+            } else {
+                memory = 'Unknown';
+            }
+        } catch (error) {
+            console.warn('Failed to get memory usage:', error.message);
+            memory = 'Unknown';
+        }
+        
+        try {
+            const dfOutput = await execCommand('df -h / | tail -1');
+            const parts = dfOutput.split(/\s+/);
+            if (parts.length >= 5) {
+                disk = parts[4];
+            } else {
+                disk = 'Unknown';
+            }
+        } catch (error) {
+            console.warn('Failed to get disk usage:', error.message);
+            disk = 'Unknown';
+        }
         
         // Parse exports file for validation
         const { exports, errors } = await parseExportsFile();
+        
+        // Set cache control headers to prevent caching
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
         
         res.json({
             nfsServer: {
