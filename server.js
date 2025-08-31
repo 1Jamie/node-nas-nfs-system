@@ -21,7 +21,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // Change this 
 // Configuration and backup settings
 const CONFIG_DIR = process.env.CONFIG_DIR || '/etc/nfs-web-ui';
 const CONFIG_FILE = path.join(CONFIG_DIR, 'exports.json');
-const BACKUP_DIR = process.env.BACKUP_DIR || '/home/autumn/nfs-backups';
+const BACKUP_DIR = process.env.BACKUP_DIR || '/var/backups/nfs-web-ui';
 const MAX_BACKUPS = parseInt(process.env.MAX_BACKUPS) || 10;
 
 // Middleware

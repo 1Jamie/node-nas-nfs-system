@@ -1,0 +1,15 @@
+[Unit]
+Description=NFS Configuration Manager
+After=network.target nfs-kernel-server.service
+Requires=nfs-kernel-server.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nfs-config-manager
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
